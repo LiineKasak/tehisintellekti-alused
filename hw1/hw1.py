@@ -46,7 +46,8 @@ class Graph:
 
     def display_path(self, path):
         """Print map with displayed path."""
-        for coord in path[:-1]:
+        print(path)
+        for coord in path[1:-1]:
             self.map[coord[1]][coord[0]] = "."
         print(Graph.map_to_str(self.map))
 
@@ -87,10 +88,10 @@ def bfs(graph: Graph, start: tuple):
 
     path = []
     while current != start:
-        next = came_from[current]
-        path.append(next)
-        current = next
-    return path
+        path.append(current)
+        current = came_from[current]
+    path.append(start)
+    return path[::-1]
 
 
 def find_and_display_path(map: list):
