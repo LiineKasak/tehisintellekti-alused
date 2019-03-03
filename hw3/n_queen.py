@@ -69,7 +69,7 @@ def hill_climbing(pos: NQPosition):
 def n_queen_problem(n: int):
     best_value = n
     try_nr = 1
-    while best_value != 0:
+    while best_value != 0:  # random restart
         print(f"Try {try_nr}:\n------")
         pos = NQPosition(n)
         print(f"Initial value {pos.value()}")
@@ -78,7 +78,7 @@ def n_queen_problem(n: int):
         if best_value == 0:
             pos.print_board()
         try_nr += 1
-        if try_nr > 100:
+        if try_nr > 200:
             print(f"No solution for N={n} or unable to solve!")
             break
 
