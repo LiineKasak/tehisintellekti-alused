@@ -9,14 +9,24 @@ class MineSweeperKb:
                     self.kb += self.generate_kb_for_spot(row_i, col_i)
 
     def generate_kb_for_spot(self, row_i: int, col_i: int) -> list:
-        unknowns = self.get_unknown_indices(row_i, col_i)
-        binary_combinations = self.get_all_binary_combinations(unknowns)
-
+        neighbors = self.get_unknown_indices(row_i, col_i)
         mines_nr = int(self.m_map[row_i][col_i])
-        if mines_nr == 0:
-            return []
-        binary_combinations = self.fix_combinations(binary_combinations, mines_nr)
-        return binary_combinations
+
+        n = len(neighbors)
+        cnf = []
+        for i in range(2 ** n):
+            binform = "{:0{n}b}".format(i, n=n)
+            ones = 0
+            clause = []
+            for j in range(n):
+                if binform[j] == "1":
+                    ones += 1
+                    clause.append(-neighbors[j])
+                else:
+                    clause.append(neighbors[j])
+            if ones != mines_nr:
+                cnf.append(tuple(clause))
+        return cnf
 
     def get_unknown_indices(self, row_i: int, col_i: int) -> list:
         unknowns = []
@@ -34,38 +44,27 @@ class MineSweeperKb:
                     unknowns.append(new_col + new_row * map_size)
         return unknowns
 
-    @staticmethod
-    def get_all_binary_combinations(unknowns) -> list:
-        combinations = []
-        for ind in range(2 ** len(unknowns)):
-            binary_num = '{:0{}b}'.format(ind, len(unknowns))
-            num = [x if binary_num[i - 1] == '0' else -x for i, x in enumerate(unknowns)]
-            combinations.append(tuple(num))
-        return combinations
-
-    @staticmethod
-    def fix_combinations(combinations: list, mines_nr: int) -> list:
-        return [comb for comb in combinations if len([x for x in comb if x < 0]) != mines_nr]
-
 
 class ResolutionMethod:
 
     def __init__(self, kb):
         self.kb = kb
 
-    def resolution(self, alpha: int):
+    def resolution(self, alpha: int, debug: bool):
         # alpha - literaal, mida tahame kontrollida. for example 9 or -9
-        candidates = set(self.kb + [tuple([alpha])])
+        candidates = set(self.kb.copy() + [tuple([alpha])])
         processed = set()
 
         i = 0
         while len(candidates) != 0:
+            if debug:
+                print(f"Candidates: {candidates}")
             candidate = candidates.pop()
             for p in processed:
-                if self.subsumes(p, candidate):
+                if self.subsumes(candidate, p, debug):
                     continue
             for p in processed:
-                resolvents = self.resolve(candidate, p)
+                resolvents = self.resolve(set(candidate), set(p), debug)
                 for r in resolvents:
                     if len(r) == 0:
                         return True
@@ -73,50 +72,82 @@ class ResolutionMethod:
             processed.add(candidate)
 
             i += 1
-            if i > 300:
+            if i > 200:
                 return False  # to stop endless loop in case of no contradiction found
         return False
 
     @staticmethod
-    def subsumes(p: tuple, sub: tuple):
-        for i in sub:
-            if i not in p:
+    def subsumes(clause: tuple, subset: tuple, debug: bool):
+        for i in subset:
+            if i not in clause:
                 return False
-        #  print(f"{sub} subsumes {p}")
+        if debug:
+            print(f"{subset} subsumes {clause}")
         return True
 
     @staticmethod
-    def resolve(clause1: tuple, clause2: tuple):
-        #  print(f"Resolving {clause1} and {clause2}.. ", end="")
+    def resolve(clause1: set, clause2: set, debug: bool):
+        if debug:
+            print(f"Resolving {clause1} and {clause2}.. ", end="")
         resolvents = set()
-        resolvents.add(tuple(set(clause1 + clause2)))
         for p in clause1:
             if -p in clause2:
-                temp = list(clause1 + clause2)
-                temp.remove(p)
-                temp.remove(-p)
-                resolvents.add(tuple(temp))
-
-        #  print(f"Resolvents: {resolvents}")
+                temp1, temp2 = clause1.copy(), clause2.copy()
+                temp1.remove(p)
+                temp2.remove(-p)
+                resolvents.add(tuple(temp1) + tuple(temp2))
+        if len(resolvents) == 0:
+            temp = set(tuple(clause1) + tuple(clause2))
+            resolvents.add(tuple(temp))
+        if debug:
+            print(f"Resolvents: {resolvents}")
         return resolvents
+
+    @staticmethod
+    def is_tautology(clause: set):
+        for i in clause:
+            if -i in clause:
+                return True
+        return False
+
+
+def check_minesweeper_index(minesweeper_map: list, alpha: int, debug: bool = False):
+    print(f"Index: {alpha}, Map: {minesweeper_map}")
+    minesweeper = MineSweeperKb(minesweeper_map)
+    knowledge_base = minesweeper.kb
+    print(f"kb: {knowledge_base}")
+    resolution_method = ResolutionMethod(knowledge_base)
+
+    is_mine = resolution_method.resolution(-alpha, debug)
+    print(f"is mine: {is_mine}")
+    if is_mine:
+        print("Mine exists\n")
+    else:
+        is_not_mine = resolution_method.resolution(alpha, debug)
+        print(f"is not mine: {is_not_mine}")
+
+        if not is_mine and not is_not_mine:
+            print("Not sure... Unable to resolve\n")
+        else:
+            print("No mine\n")
 
 
 if __name__ == '__main__':
     l1 = ["2.", ".."]
+    check_minesweeper_index(l1, 1)  # not sure
+
     l2 = ["110",
           ".1.",
           "110"]
+    check_minesweeper_index(l2, 3)  # yes
+    check_minesweeper_index(l2, 5)  # no
+
     l3 = ["000.",
           "1211",
           "...."]
+    check_minesweeper_index(l3, 8)  # yes
+
     l4 = ["....0",
           ".421.",
           ".100."]
-    l5 = [".21",
-          "11.",
-          "01."]
-    minesweeper = MineSweeperKb(l5)
-    knowledge_base = minesweeper.kb
-    print(f"Whole kb: {knowledge_base}")
-    resolution_method = ResolutionMethod(knowledge_base)
-    print(f"Resolution: {resolution_method.resolution(0)}")
+    check_minesweeper_index(l4, 1)  # yes
