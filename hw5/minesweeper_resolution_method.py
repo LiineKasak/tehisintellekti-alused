@@ -1,3 +1,27 @@
+import heapq
+
+
+class MyHeap(object):
+
+    def __init__(self, initial=None, key=lambda x: x):
+        self.key = key
+        if initial:
+            self.data = [(key(item), tuple(sorted(item))) for item in initial]
+            heapq.heapify(self.data)
+        else:
+            self.data = []
+
+    def push(self, item):
+        key = self.key(item)
+        heapq.heappush(self.data, (key, item))
+
+    def pop(self):
+        return heapq.heappop(self.data)[1]
+
+    def is_empty(self):
+        return len(self.data) == 0
+
+
 class MineSweeperKb:
 
     def __init__(self, minesweeper_map: list):
@@ -30,7 +54,8 @@ class MineSweeperKb:
 
     def get_unknown_indices(self, row_i: int, col_i: int) -> list:
         unknowns = []
-        map_size = len(self.m_map)
+        map_height = len(self.m_map)
+        map_width = len(self.m_map[0])
         shift = [-1, 0, 1]
         for row_shift in shift:
             for col_shift in shift:
@@ -38,10 +63,10 @@ class MineSweeperKb:
                     continue
                 new_row = row_i + row_shift
                 new_col = col_i + col_shift
-                if not (0 <= new_row < map_size and 0 <= new_col < map_size):
+                if not (0 <= new_row < map_height and 0 <= new_col < map_width):
                     continue
                 if not self.m_map[new_row][new_col].isdigit():
-                    unknowns.append(new_col + new_row * map_size)
+                    unknowns.append(1 + new_col + new_row * map_width)
         return unknowns
 
 
@@ -52,23 +77,27 @@ class ResolutionMethod:
 
     def resolution(self, alpha: int, debug: bool):
         # alpha - literaal, mida tahame kontrollida. for example 9 or -9
-        candidates = set(self.kb.copy() + [tuple([alpha])])
         processed = set()
+        candidates = MyHeap(set(self.kb.copy() + [tuple([alpha])]), key=len)
 
         i = 0
-        while len(candidates) != 0:
-            if debug:
-                print(f"Candidates: {candidates}")
+        while not candidates.is_empty():
             candidate = candidates.pop()
+            if debug:
+                print(f"\nCurrent: {candidate} Candidates: {candidates.data}\nProcessed: {processed}")
+            subsumed = False
             for p in processed:
                 if self.subsumes(candidate, p, debug):
-                    continue
+                    subsumed = True
+                    break
+            if subsumed:
+                continue
             for p in processed:
-                resolvents = self.resolve(set(candidate), set(p), debug)
+                resolvents = self.resolve(candidate, p, debug)
                 for r in resolvents:
                     if len(r) == 0:
                         return True
-                    candidates.add(r)
+                    candidates.push(tuple(sorted(r)))
             processed.add(candidate)
 
             i += 1
@@ -78,26 +107,32 @@ class ResolutionMethod:
 
     @staticmethod
     def subsumes(clause: tuple, subset: tuple, debug: bool):
-        for i in subset:
-            if i not in clause:
+        for i in clause:
+            if i not in subset:
                 return False
         if debug:
-            print(f"{subset} subsumes {clause}")
+            print(f"{clause} subsumes {subset}")
         return True
 
     @staticmethod
-    def resolve(clause1: set, clause2: set, debug: bool):
+    def resolve(clause1: tuple, clause2: tuple, debug: bool):
         if debug:
             print(f"Resolving {clause1} and {clause2}.. ", end="")
         resolvents = set()
+        resolved = set()
         for p in clause1:
             if -p in clause2:
-                temp1, temp2 = clause1.copy(), clause2.copy()
-                temp1.remove(p)
-                temp2.remove(-p)
-                resolvents.add(tuple(temp1) + tuple(temp2))
-        if len(resolvents) == 0:
-            temp = set(tuple(clause1) + tuple(clause2))
+                if p in resolved or -p in resolved:
+                    continue
+                resolved.add(p)
+                temp = list(clause1 + clause2)
+                while p in temp:
+                    temp.remove(p)
+                while -p in temp:
+                    temp.remove(-p)
+                resolvents.add(tuple(set(temp)))
+        temp = sorted(set(clause1 + clause2))
+        if len(resolvents) == 0 and temp != sorted(clause1) and temp != sorted(clause2):
             resolvents.add(tuple(temp))
         if debug:
             print(f"Resolvents: {resolvents}")
@@ -132,22 +167,30 @@ def check_minesweeper_index(minesweeper_map: list, alpha: int, debug: bool = Fal
             print("No mine\n")
 
 
-if __name__ == '__main__':
+def check_all_cases():
     l1 = ["2.", ".."]
-    check_minesweeper_index(l1, 1)  # not sure
+    check_minesweeper_index(l1, 2, True)  # not sure
 
     l2 = ["110",
           ".1.",
           "110"]
-    check_minesweeper_index(l2, 3)  # yes
-    check_minesweeper_index(l2, 5)  # no
+    check_minesweeper_index(l2, 4)  # yes
+    check_minesweeper_index(l2, 6)  # no
 
     l3 = ["000.",
           "1211",
           "...."]
-    check_minesweeper_index(l3, 8)  # yes
+    check_minesweeper_index(l3, 9)  # yes
 
     l4 = ["....0",
           ".421.",
           ".100."]
     check_minesweeper_index(l4, 1)  # yes
+
+
+if __name__ == '__main__':
+    # check_all_cases()
+    l3 = ["000.",
+          "1211",
+          "...."]
+    check_minesweeper_index(l3, 11, True)  # yes
