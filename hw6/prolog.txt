@@ -17,7 +17,7 @@ mortal(X):-
 
 year(2019).
 
-surnud(X):-
+dead(X):-
     mortal(X),
     year(Year),
     born(X, BirthYear),
