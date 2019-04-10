@@ -1,0 +1,27 @@
+man(marcus).
+man(jaan).
+
+citizen(marcus, pompej).
+citizen(francesco, pompej).
+
+pompej_citizen(X):-
+    man(X),
+    citizen(X, pompej).
+
+born(marcus, 40).
+born(jaan, 1977).
+born(francesco, 1989).
+
+mortal(X):-
+    man(X).
+
+year(2019).
+
+surnud(X):-
+    mortal(X),
+    year(Year),
+    born(X, BirthYear),
+    (BirthYear + 150 < Year;
+    pompej_citizen(X),
+        Year > 79,
+        BirthYear < 79).
